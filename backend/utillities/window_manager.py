@@ -18,6 +18,7 @@ class WindowManager:
             "url": f"{url}?window_id={window_id}",
             "width": 800,
             "height": 600,
+            "resizable": True
         }
 
         webview.create_window(**config)

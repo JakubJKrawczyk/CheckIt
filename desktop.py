@@ -20,7 +20,7 @@ if __name__ == '__main__':
     t.start()
 
     window_manager.create_window(
-        title="Główne Okno",
+        title="CheckIt",
         url="http://127.0.0.1:8000/"
     )
 
