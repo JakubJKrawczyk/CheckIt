@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import { useState, useEffect, useRef } from 'react';
 
 interface MessagePayload {
   from: string;
@@ -6,18 +8,17 @@ interface MessagePayload {
 }
 
 function App() {
-  const [myWindowId, setMyWindowId] = useState('unknown');
-  const [messageLog, setMessageLog] = useState<string[]>([]);
-  const [targetWindowId, setTargetWindowId] = useState('main_1');
+  const [myWindowId, _setMyWindowId] = useState(() => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('window_id') || 'main_1';
+  });
+  const [_messageLog, setMessageLog] = useState<string[]>([]);
+  const [targetWindowId, _setTargetWindowId] = useState('main_1');
   const [dataToSend, setDataToSend] = useState('');
   const ws = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const winId = params.get('window_id') || 'main_1';
-    setMyWindowId(winId);
-
-    ws.current = new WebSocket(`ws://127.0.0.1:8000/ws/${winId}`);
+   useEffect(() => {
+    ws.current = new WebSocket(`ws://127.0.0.1:8000/ws/${myWindowId}`);
 
     ws.current.onmessage = (event) => {
       setMessageLog((prev) => [...prev, `Odebrano: ${event.data}`]);
@@ -30,8 +31,9 @@ function App() {
     return () => {
       ws.current?.close();
     };
-  }, []);
+  }, [myWindowId]);
 
+  // @ts-expect-error itis
   const createNewWindow = () => {
     fetch('http://127.0.0.1:8000/api/window/create', {
       method: 'POST',
@@ -40,6 +42,7 @@ function App() {
     });
   };
 
+  // @ts-expect-error itis
   const sendMessage = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       console.error("WebSocket nie jest połączony.");
@@ -56,37 +59,8 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>ID Tego Okna: {myWindowId}</h1>
-      <button onClick={createNewWindow}>Stwórz Nowe Okno</button>
-
-      <hr style={{ margin: '20px 0' }} />
-
-      <h2>Wyślij Dane</h2>
-      <div>
-        <label>ID Odbiorcy:</label>
-        <input
-          value={targetWindowId}
-          onChange={(e) => setTargetWindowId(e.target.value)}
-        />
-      </div>
-      <div>
-        <label>Dane:</label>
-        <input
-          value={dataToSend}
-          onChange={(e) => setDataToSend(e.target.value)}
-        />
-      </div>
-      <button onClick={sendMessage}>Wyślij</button>
-
-      <hr style={{ margin: '20px 0' }} />
-      
-      <h2>Log Wiadomości</h2>
-      <div style={{ background: '#f0f0f0', minHeight: '100px', padding: '10px' }}>
-        {messageLog.map((msg, index) => (
-          <div key={index}>{msg}</div>
-        ))}
-      </div>
+    <div>
+      hujniaasdawd
     </div>
   );
 }
