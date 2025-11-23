@@ -49,6 +49,40 @@ class WindowManager:
             return Response(success= success("Successfully removed window."))
         else:
             return Response(error= TYPICAL_ERRORS[404])
+        
+    def save_to_storage(self, key, value, window_id):
+        target_window = next((w for w in self.windows if w.id == window_id), None)
+        if target_window:
+            target_window.storage[key] = value
+            return Response(success= success("Data saved to window storage successfully."))
+        else:
+            return Response(error= TYPICAL_ERRORS[404])
+        
+    def get_from_storage(self, key, window_id):
+        target_window = next((w for w in self.windows if w.id == window_id), None)
+        if target_window:
+            value = target_window.storage.get(key, None)
+            if value is not None:
+                return Response(success= success("Data retrieved from window storage successfully.", data={"value": value}))
+            else:
+                return Response(error= TYPICAL_ERRORS[404])
+        else:
+            return Response(error= TYPICAL_ERRORS[404])
+
+    def delete_from_storage(self, key, window_id):
+        target_window = next((w for w in self.windows if w.id == window_id), None)
+        if target_window:
+            if key in target_window.storage:
+                del target_window.storage[key]
+                return Response(success= success("Data deleted from window storage successfully."))
+            else:
+                return Response(error= TYPICAL_ERRORS[404])
+        else:
+            return Response(error= TYPICAL_ERRORS[404])
+
+    def list_windows(self):
+        window_list = [{"id": w.window_id, "title": w.title} for w in self.windows]
+        return Response(success= success("List of windows retrieved successfully.", data={"windows": window_list}))
 
 
 

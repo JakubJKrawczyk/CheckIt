@@ -17,5 +17,6 @@ class window:
         self.parent = parent
         self.url = url
         self.config = config
+        self.storage = dict()
 
 
