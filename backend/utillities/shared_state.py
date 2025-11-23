@@ -1,5 +1,5 @@
 import json
-from ..models.window import Window
+from backend.models.window import window
 class SharedState:
     def __init__(self):
         self.subscribers = {}
