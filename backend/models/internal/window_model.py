@@ -1,7 +1,7 @@
 from pydantic.v1.schema import model_schema
 from starlette.config import undefined
 
-class window:
+class window_model:
     def __init__(
             self,
             title = undefined,
