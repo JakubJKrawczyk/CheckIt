@@ -88,7 +88,7 @@ class WindowManager:
         window_list = [{"id": w.Id, "title": w.Title} for w in self.windows]
         return Response(success= success("List of windows retrieved successfully.", data={"windows": window_list}))
 
-    def set_websocket(self, window_id, websocket: WebSocket):
+    def register_websocket(self, window_id, websocket: WebSocket):
         if window_id not in [w.Id for w in self.windows]:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
 
@@ -100,5 +100,12 @@ class WindowManager:
         window.Websocket = websocket
         return Response(success= success("Websocket set successfully!"))
 
+    def remove_websocket(self, window_id):
+        if window_id not in [w.Id for w in self.windows]:
+            return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
+        window = next(w for w in self.windows if w.Id == window_id)
+        if window.Websocket is undefined:
+            return Response(error= TYPICAL_ERRORS[ERROR_TYPES.SOCKET_NOT_FOUND])
+        
 
 window_manager = WindowManager()
