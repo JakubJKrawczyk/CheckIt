@@ -1,7 +1,6 @@
 from starlette.websockets import WebSocket
 from starlette.config import undefined
 from ..internal.window_model import window_model
-from ...utillities.window_manager import WindowManager, window_manager
 
 
 class Window:
@@ -61,8 +60,9 @@ class Window:
 
     @Parent.setter
     def Parent(self, parent: window_model):
-        if parent.id not in [w.window_id for w in window_manager.list_windows()]:
-            raise ValueError("Passed window is not presentent in tle list!")
+        from ...utillities.window_manager import window_manager
+        if parent.id not in [w.Id for w in window_manager.windows]:
+            raise ValueError("Passed window is not present in the list!")
         self.w.parent = parent
 
     @property

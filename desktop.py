@@ -1,3 +1,4 @@
+import asyncio
 import argparse
 import logging
 
@@ -23,12 +24,15 @@ REACT_DEV_URL = "http://localhost:5173"
 
 def check_react_server(url):
     for i in range(1,10):
-        response = requests.get(REACT_DEV_URL)
-        if response.status_code != 200:
-            time.sleep(5)
-        else:
-            return
-        logging.error("Front nie został uruchomiony! Uruchom front i spróbuj ponownie.")
+        try:
+            response = requests.get(REACT_DEV_URL)
+            if response.status_code == 200:
+                return
+        except requests.ConnectionError:
+            pass
+        time.sleep(5)
+    logging.error("Front nie został uruchomiony! Uruchom front i spróbuj ponownie.")
+    sys.exit(1)
 
 
 
@@ -59,8 +63,8 @@ if __name__ == '__main__':
         t_check.start()
         t_check.join()
 
-    window_manager.create_window(
+    asyncio.run(window_manager.create_window(
         title="CheckIt",
         url=url_to_load
-    )
+    ))
     webview.start(debug=True)

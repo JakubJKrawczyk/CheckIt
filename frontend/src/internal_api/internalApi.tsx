@@ -1,4 +1,4 @@
-import Windows from "./InternalApi.Windows"
+import Windows from "./internalApi.windows"
 
 class InternalApi {
 

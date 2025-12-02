@@ -1,6 +1,6 @@
 
 import axioClient from "../axioClient.tsx";
-import Windows_Storage from "./InternalApi.Windows.Storage.tsx";
+import Windows_Storage from "./internalApi.windows.storage.tsx";
 
 class Windows {
 

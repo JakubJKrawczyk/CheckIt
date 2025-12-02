@@ -6,16 +6,18 @@ from fastapi.responses import FileResponse
 from starlette.config import undefined
 from starlette.websockets import WebSocket
 from .models.api.response import Response, success
-from .utillities.window_manager import window_manager
 from .consts.messages import *
 from .models.internal.window_model import window_model
 
+# VARIABLES
 # VARIABLES
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST_DIR = os.path.join(BASE_DIR, "frontend", "dist")
 
+# Import window_manager after app initialization to avoid circular imports
+from .utillities.window_manager import window_manager
 
 # WINDOW ENDPOINTS
 
@@ -35,7 +37,7 @@ async def create_window_endpoint(title: str, url: str, parent_id: str = undefine
 ## get window by id
 @app.get("/api/window/{window_id}")
 async def get_window_by_id(window_id: str):
-    if window_id not in [w.Id for w in await window_manager.list_windows()]:
+    if window_id not in [w.Id for w in await window_manager.list_windows().success.data.windows]:
         return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
     else:
         return await window_manager.get_window(window_id)

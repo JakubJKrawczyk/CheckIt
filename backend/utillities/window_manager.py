@@ -2,16 +2,18 @@ import uuid
 import webview
 from starlette.config import undefined
 from typing import List
-
 from starlette.websockets import WebSocket, WebSocketState
-
 from backend.models.internal.window_model import window_model
 from backend.models.webservice.Window import Window
 from ..utillities.special_functions import *
 
 
-def generate_window_id(parent: window_model):
-    window_id = f"{parent.title}_{uuid.uuid4()}"
+def generate_window_id(parent: window_model | undefined):
+    window_id = ""
+    if parent == undefined:
+        window_id = f"main_{uuid.uuid4()}"
+    else:
+        window_id = f"{parent.title}_{uuid.uuid4()}"
     return window_id
 
 
@@ -23,6 +25,7 @@ class WindowManager:
 
     async def create_window(self, title: str, url: str, parent: window_model = undefined):
 
+        print("tworze nowe okno")
         window_id = generate_window_id(parent)
         config = {
             "title": title,
