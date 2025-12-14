@@ -9,3 +9,10 @@ def try_perform_void_action(action: Callable, potential_error_code: int):
         return Response(success= success("Action perform success"))
     except Exception as e:
         return Response(error= TYPICAL_ERRORS[potential_error_code])
+
+def try_preform_not_void_action(action: Callable, potential_error_code: int):
+    try:
+        resp = action()
+        return Response(success= success("Action perform success", data = resp))
+    except Exception as e:
+        return Response(error= TYPICAL_ERRORS[potential_error_code])

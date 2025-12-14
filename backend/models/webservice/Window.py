@@ -1,16 +1,17 @@
 from starlette.websockets import WebSocket
-from starlette.config import undefined
 from ..internal.window_model import window_model
-
+from webview import Window as pyw
 
 class Window:
     def __init__(self,
-                 websocket: WebSocket = undefined,
-                 window_model: window_model = undefined):
+                 websocket: WebSocket = None,
+                 window_model: window_model = None,
+                 pywebview_window: pyw = None):
 
-        self.w = window_model if window_model is not undefined else window_model()
+        self.w = window_model if window_model is not None else window_model()
         self.Id = self.w.id
         self.Websocket = websocket
+        self.PyWebViewWindow = pywebview_window
 
     # --- Title ---
     @property
@@ -74,19 +75,27 @@ class Window:
         if key_value is not tuple:
             raise ValueError("Passed argument must be TUPLE( key, value )")
         key, value = key_value
-        if value is undefined:
+        if value is None:
             self.w.storage.pop(__key= key)
         else:
             self.w.storage[key] = value
 
     # --- Helper do pobrania całego stanu ---
     def to_dict(self):
+        parent_data = None
+        if self.Parent is not None:
+            parent_data = {
+                "window_id": self.Parent.id,
+                "title": self.Parent.title
+            }
+
         return {
-            "id": self.Id,
+            "window_id": self.Id,
             "title": self.Title,
             "size": self.Size,
             "url": self.Url,
             "config": self.Config,
-            "parent": self.Parent,
-            "storage": self.Storage
+            "parent": parent_data,
+            "storage": dict(self.Storage) if self.Storage else {},
+            "webview_reference": {"id": self.PyWebViewWindow.uid, "title": self.PyWebViewWindow.title }
         }

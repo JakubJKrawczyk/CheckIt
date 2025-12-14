@@ -1,15 +1,14 @@
 from pydantic.v1.schema import model_schema
-from starlette.config import undefined
 
 class window_model:
     def __init__(
             self,
-            title = undefined,
-            id = undefined,
-            parent = undefined,
+            title = None,
+            id = None,
+            parent = None,
             size = (0,0),
-            config = undefined,
-            url = undefined
+            config = None,
+            url = None
             ):
         self.title = title
         self.id = id

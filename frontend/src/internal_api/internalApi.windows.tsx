@@ -9,10 +9,13 @@ class Windows {
 
     //Windows API
     public async create_window(title:string, url: string, parent_id: string | undefined) {
-         return axioClient.post('/window/create', {
-            title: title,
-            url: url,
-            parent_id: parent_id
+        console.log(parent_id)
+         return axioClient.post('/window/create', null, {
+            params: {
+                title: title,
+                url: url,
+                parent_id: parent_id
+            }
         }).then((response) => {
             if(response.data.error != undefined){
                 console.error("Error creating window:", response.data.error.details);
@@ -58,7 +61,7 @@ class Windows {
             });
     }
 
-    public get_all_window() {
+    public get_all_windows() {
         return axioClient.get('/windows').then((response) => {
             if(response.data.error != undefined){
                 console.error("Error fetching windows:", response.data.error.details);

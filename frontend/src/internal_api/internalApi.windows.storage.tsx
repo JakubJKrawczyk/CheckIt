@@ -5,9 +5,11 @@ class Windows_Storage{
 
     //Storage API
     public save_data_to_storage(window_id: string, key: string, value: string) {
-        axioClient.post(`/window/${window_id}/storage`, {
-            key: key,
-            value: value
+        axioClient.post(`/window/${window_id}/storage`, null, {
+            params: {
+                key: key,
+                value: value
+            }
         }).then((response) => {
             if(response.data.error != undefined){
                 console.error("Error saving data to storage:", response.data.error.details);
@@ -22,7 +24,11 @@ class Windows_Storage{
     }
 
     public get_data_from_storage(window_id: string, key: string) {
-        return axioClient.get(`/window/${window_id}/storage/${key}`)
+        return axioClient.get(`/window/${window_id}/storage`, {
+            params: {
+                key: key
+            }
+        })
             .then((response) => {
                 if(response.data.error != undefined){
                     console.error("Error fetching data from storage:", response.data.error.details);
@@ -37,7 +43,11 @@ class Windows_Storage{
     }
 
     public delete_data_from_storage(window_id: string, key: string){
-        return axioClient.delete(`/window/${window_id}/storage/${key}`)
+        return axioClient.delete(`/window/${window_id}/storage`, {
+            params: {
+                key: key
+            }
+        })
         .then((response) => {
             if(response.data.error != undefined){
                 console.error(`Error deleting data from storage: ${response.data.error.details}`);

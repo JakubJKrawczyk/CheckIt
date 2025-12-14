@@ -38,6 +38,7 @@ def check_react_server(url):
 
 def start_backend_server():
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    print("[BACKEND] running")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Uruchamia aplikację CheckIt z opcją trybu deweloperskiego.")
@@ -62,6 +63,7 @@ if __name__ == '__main__':
         t_check = threading.Thread(target=check_react_server, args=(url_to_load,))
         t_check.start()
         t_check.join()
+        
 
     asyncio.run(window_manager.create_window(
         title="CheckIt",

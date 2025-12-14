@@ -1,16 +1,15 @@
 import uuid
 import webview
-from starlette.config import undefined
-from typing import List
+from typing import List, Optional
 from starlette.websockets import WebSocket, WebSocketState
 from backend.models.internal.window_model import window_model
 from backend.models.webservice.Window import Window
 from ..utillities.special_functions import *
 
 
-def generate_window_id(parent: window_model | undefined):
+def generate_window_id(parent: window_model | None):
     window_id = ""
-    if parent == undefined:
+    if parent is None:
         window_id = f"main_{uuid.uuid4()}"
     else:
         window_id = f"{parent.title}_{uuid.uuid4()}"
@@ -23,7 +22,7 @@ class WindowManager:
         self.windows: List[Window] = []
 
 
-    async def create_window(self, title: str, url: str, parent: window_model = undefined):
+    async def create_window(self, title: str, url: str, parent: window_model = None):
 
         print("tworze nowe okno")
         window_id = generate_window_id(parent)
@@ -32,15 +31,20 @@ class WindowManager:
             "url": f"{url}?window_id={window_id}",
             "width": 800,
             "height": 600,
-            "resizable": True
+            "resizable": False
         }
 
-        window_instance = Window(window_model = window_model(title, window_id, parent, config))
 
-        window_create_resp = try_perform_void_action(lambda: webview.create_window(**config), ERROR_TYPES.INTERNAL_SERVER_ERROR.value)
+        window_create_resp = try_preform_not_void_action(lambda: webview.create_window(**config), ERROR_TYPES.INTERNAL_SERVER_ERROR.value)
 
-        if window_create_resp.error is not undefined:
+        if window_create_resp.error is not None:
             return window_create_resp
+        
+        window_instance = Window(window_model = window_model(title, window_id, parent, (config["width"], config["height"]), config, config["url"]), pywebview_window= window_create_resp.success.data)
+
+        if window_instance.PyWebViewWindow.uid == "master":
+            window_instance.PyWebViewWindow.events.closing +=  custom_closing_handler
+            
 
         self.windows.append(window_instance)
 
@@ -48,7 +52,8 @@ class WindowManager:
 
     async def get_window(self, window_id: str):
         if window_id in [w.Id for w in self.windows]:
-            return Response(success=success("Window successfully found!", data={"window" : next(w.Id for w in self.windows)}))
+            window = next(w for w in self.windows if w.Id == window_id)
+            return Response(success=success("Window successfully found!", data={"window" : window.to_dict()}))
         else:
             return Response(error=TYPICAL_ERRORS[ERROR_TYPES.NOT_FOUND])
 
@@ -82,7 +87,7 @@ class WindowManager:
         target_window = next((w for w in self.windows if w.Id == window_id), None)
         if target_window:
             if key in target_window.Storage:
-                target_window.Storage = (key, undefined)
+                target_window.Storage = (key, None)
                 return Response(success= success("Data deleted from window storage successfully."))
             else:
                 return Response(error= TYPICAL_ERRORS[ERROR_TYPES.NOT_FOUND])
@@ -90,7 +95,7 @@ class WindowManager:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.NOT_FOUND])
 
     async def list_windows(self):
-        window_list = [{"id": w.Id, "title": w.Title} for w in self.windows]
+        window_list = [w.to_dict() for w in self.windows]
         return Response(success= success("List of windows retrieved successfully.", data={"windows": window_list}))
 
     async def register_websocket(self, window_id, websocket: WebSocket):
@@ -98,9 +103,9 @@ class WindowManager:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
 
         window = next(w for w in self.windows if w.Id == window_id)
-        if window.Websocket is not undefined:
+        if window.Websocket is not None:
             await window.Websocket.close()
-            window.Websocket = undefined
+            window.Websocket = None
 
         window.Websocket = websocket
         return Response(success= success("Websocket set successfully!"))
@@ -109,11 +114,11 @@ class WindowManager:
         if window_id not in [w.Id for w in self.windows]:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
         window = next(w for w in self.windows if w.Id == window_id)
-        if window.Websocket is undefined:
+        if window.Websocket is None:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.SOCKET_NOT_FOUND])
 
         await window.Websocket.close()
-        window.Websocket = undefined
+        window.Websocket = None
 
         return Response(success= success("Successfully closed websocket!"))
 
@@ -123,7 +128,7 @@ class WindowManager:
 
         window = next(w for w in self.windows if w.Id == window_id)
 
-        if window.Websocket is undefined:
+        if window.Websocket is None:
             return Response(error= TYPICAL_ERRORS[ERROR_TYPES.SOCKET_NOT_FOUND])
 
         if window.Websocket.application_state != WebSocketState.CONNECTED:
@@ -132,6 +137,12 @@ class WindowManager:
         await window.Websocket.send_text(payload)
         return Response(success= success("Message sent!"))
 
+def custom_closing_handler():
+    if any([w.uid != "master" for w in webview.windows]):
+        print("NI CHUJAAAAAA")
+        return False
+    else:
+        return True
 
 
 window_manager = WindowManager()
