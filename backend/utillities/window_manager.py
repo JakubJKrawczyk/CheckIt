@@ -22,15 +22,15 @@ class WindowManager:
         self.windows: List[Window] = []
 
 
-    async def create_window(self, title: str, url: str, parent: window_model = None):
+    async def create_window(self, title: str, url: str, width: int = 800, height: str = 600, parent: window_model = None):
 
         print("tworze nowe okno")
         window_id = generate_window_id(parent)
         config = {
             "title": title,
             "url": f"{url}?window_id={window_id}",
-            "width": 800,
-            "height": 600,
+            "width": width,
+            "height": height,
             "resizable": False
         }
 

@@ -49,7 +49,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-
+ 
     t = threading.Thread(target=start_backend_server)
     t.daemon = True
     t.start()
@@ -67,6 +67,8 @@ if __name__ == '__main__':
 
     asyncio.run(window_manager.create_window(
         title="CheckIt",
-        url=url_to_load
+        url=url_to_load,
+        width=1200,
+        height=1000
     ))
     webview.start(debug=True)

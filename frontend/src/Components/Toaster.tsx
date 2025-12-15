@@ -1,22 +1,48 @@
+import "./toastter_style.css"
 
-function ShowToaster(Message: string){
+interface props_toaster{
+    message: string
+}
+
+const MessageType = {
+    LOG: {color: "white", banner: "[LOG]"},
+    ERROR: {color: "red", banner: "[ERROR]"},
+    WARNING: {color: "yellow", banner: "[WARNING]"},
+    WORKING: {color: "lightblue", banner: "[WORKING]"},
+    HINT: {color: "white", banner: "[HINT]"},
+}
+
+function ShowToaster(){
     const toaster = document.querySelector('.toaster') as HTMLElement;
+    const toaster_body = document.querySelector('.toaster-body') as HTMLElement;
     if(toaster){
-        toaster.innerText = Message;
         toaster.classList.remove('toaster-hide');
-        setTimeout(() => {
-            toaster.classList.add('toaster-hide');
-        }, 3000);
     }
   }
 
+  function SetMessage(type, Message: string){
+    const toaster_body = document.querySelector('.toaster-body') as HTMLElement;
+    toaster_body.innerHTML = `<span style="color:red"> [Warning] </span>${Message}`
+  }
 
-function Toaster(Message: string){
+  function CloseToaster(){
+    const toaster = document.querySelector('.toaster') as HTMLElement;
+    if(toaster){
+        toaster.classList.add('toaster-hide');
+    }
+  }
+
+function Toaster(props: props_toaster){
     return (
-        <div className="toaster toaster-hide">
-            {Message}
+        <div onClick={CloseToaster} className="toaster toaster-hide">
+            <div className="toaster-main">
+                
+                <div className="toaster-body">
+                {props.message}
+                </div>
+            </div>
         </div>
     )
 }
 
-export {Toaster, ShowToaster};
+export {Toaster, SetMessage, ShowToaster};

@@ -1,3 +1,4 @@
+import { ShowToaster, Toaster, SetMessage } from "./components/Toaster";
 import windowController from "./controllers/windowController";
 import type { WindowModelClass } from "./models/internal/windowModel";
 
@@ -11,10 +12,19 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="main">
       hujniaasdawd
-      <button onClick={newWindow}>New Window</button>
+      <button onClick={() =>
+        {
+          SetMessage("kurwa")
+        ShowToaster();
+        }
+      }>show toster</button>
+
+    <Toaster message="This is a toast message" />
+
     </div>
+
   );
 }
 

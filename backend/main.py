@@ -46,7 +46,7 @@ async def create_window_endpoint(title: str, url: str, parent_id: Optional[str] 
         if parent_window:
             parent = parent_window.w 
 
-    result = await window_manager.create_window(title, url, parent)
+    result = await window_manager.create_window(title=title, url=url, parent=parent)
     return result.dict()
 
 ## get window by id

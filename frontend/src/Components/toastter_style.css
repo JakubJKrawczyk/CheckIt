@@ -1,0 +1,39 @@
+
+.toaster-hide{
+    transform: translateY(100px);
+}
+
+.toaster{
+    width: 100vw;
+    height: fit-content;
+    position: fixed;
+    bottom: 0;
+    left:0;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: 300ms;
+}
+
+.toaster-main{
+    width: 100vw;
+    height: fit-content;
+    display:flex;
+    flex-direction: column;
+    background-color: #0f0f0f;
+}
+
+.toaster-body{
+    display: flex;
+    flex-direction: row;
+    gap:10px;
+    align-items: center;
+    justify-content: start;
+    padding: 10px 30px;
+    height:fit-content;
+}
+
+.toaster-header button:hover{
+    color: rgb(216, 216, 216); 
+}
