@@ -1,4 +1,4 @@
-from ..models.webservice.comparer_core.core_data_source import ComparisonRule
+from ..models.webservice.comparer_core.IData_core import ComparisonRule
 
 class Comparator:
 

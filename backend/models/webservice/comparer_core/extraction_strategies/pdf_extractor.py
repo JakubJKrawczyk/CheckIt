@@ -1,8 +1,8 @@
 from ..core_extractor import IDataExtractor
-from ..core_data_source import DataAddress
+from ..data_classes.PdfData import PdfData, PDFRegionColumn
 
 class PDFRegionExt(IDataExtractor):
-    def extract(self, file_path: str, address: DataAddress) -> list:
+    def extract(self, file_path: str, regions: list[PDFRegionColumn]) -> PdfData:
         from paddleocr import PaddleOCR
         import pymupdf  # PyMuPDF
         doc = pymupdf.open(file_path)
