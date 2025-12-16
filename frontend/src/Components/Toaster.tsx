@@ -46,5 +46,5 @@ function Toaster(props: props_toaster){
     )
 }
 
-export {Toaster, SetMessage, ShowToaster, MessageType};
+export {Toaster, SetMessage, ShowToaster, CloseToaster, MessageType};
 export type {MessageTypeKey};

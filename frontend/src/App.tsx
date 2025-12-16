@@ -1,4 +1,4 @@
-import { SetMessage, ShowToaster } from "./Components/Toaster";
+import { CloseToaster, SetMessage, ShowToaster } from "./Components/Toaster";
 import { Toaster } from "./Components/Toaster";
 import type { MessageTypeKey } from "./Components/Toaster";
 import windowController from "./controllers/WindowController";
@@ -22,8 +22,8 @@ function App() {
           ShowToaster();
           setTimeout(() => {
           SetMessage("LOG" as MessageTypeKey, "This is a log message");
-
-          }, 3000);
+          }, 1000);
+          
         }
       }>show toster</button>
 
