@@ -1,5 +1,7 @@
-import { ShowToaster, Toaster, SetMessage } from "./components/Toaster";
-import windowController from "./controllers/windowController";
+import { SetMessage, ShowToaster } from "./Components/Toaster";
+import { Toaster } from "./Components/Toaster";
+import type { MessageTypeKey } from "./Components/Toaster";
+import windowController from "./controllers/WindowController";
 import type { WindowModelClass } from "./models/internal/windowModel";
 
 function App() {
@@ -16,8 +18,12 @@ function App() {
       hujniaasdawd
       <button onClick={() =>
         {
-          SetMessage("kurwa")
-        ShowToaster();
+          SetMessage("WORKING" as MessageTypeKey, "This is a log message");
+          ShowToaster();
+          setTimeout(() => {
+          SetMessage("LOG" as MessageTypeKey, "This is a log message");
+
+          }, 3000);
         }
       }>show toster</button>
 

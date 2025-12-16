@@ -10,19 +10,20 @@ const MessageType = {
     WARNING: {color: "yellow", banner: "[WARNING]"},
     WORKING: {color: "lightblue", banner: "[WORKING]"},
     HINT: {color: "white", banner: "[HINT]"},
-}
+} as const
+
+type MessageTypeKey = keyof typeof MessageType;
 
 function ShowToaster(){
     const toaster = document.querySelector('.toaster') as HTMLElement;
-    const toaster_body = document.querySelector('.toaster-body') as HTMLElement;
     if(toaster){
         toaster.classList.remove('toaster-hide');
     }
   }
 
-  function SetMessage(type, Message: string){
+  function SetMessage(type: MessageTypeKey, message: string){
     const toaster_body = document.querySelector('.toaster-body') as HTMLElement;
-    toaster_body.innerHTML = `<span style="color:red"> [Warning] </span>${Message}`
+    toaster_body.innerHTML = `<span style="color:${MessageType[type].color}"> ${MessageType[type].banner}</span>${message}`
   }
 
   function CloseToaster(){
@@ -45,4 +46,5 @@ function Toaster(props: props_toaster){
     )
 }
 
-export {Toaster, SetMessage, ShowToaster};
+export {Toaster, SetMessage, ShowToaster, MessageType};
+export type {MessageTypeKey};
