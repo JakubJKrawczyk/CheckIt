@@ -10,7 +10,7 @@ from starlette.websockets import WebSocket
 from pydantic import BaseModel
 from .models.api.response import Response, success
 from .consts.messages import *
-from .models.internal.window_model import window_model
+from .models.internal.windows.window_model import window_model
 
 # VARIABLES
 # VARIABLES

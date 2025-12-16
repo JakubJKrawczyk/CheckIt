@@ -2,8 +2,8 @@ import uuid
 import webview
 from typing import List, Optional
 from starlette.websockets import WebSocket, WebSocketState
-from backend.models.internal.window_model import window_model
-from backend.models.webservice.Window import Window
+from backend.models.internal.windows.window_model import window_model
+from backend.models.webservice.windows.Window import Window
 from ..utillities.special_functions import *
 
 

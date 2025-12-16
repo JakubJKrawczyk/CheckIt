@@ -1,5 +1,5 @@
 from starlette.websockets import WebSocket
-from ..internal.window_model import window_model
+from ...internal.windows.window_model import window_model
 from webview import Window as pyw
 
 class Window:
@@ -61,7 +61,7 @@ class Window:
 
     @Parent.setter
     def Parent(self, parent: window_model):
-        from ...utillities.window_manager import window_manager
+        from ....utillities.window_manager import window_manager
         if parent.id not in [w.Id for w in window_manager.windows]:
             raise ValueError("Passed window is not present in the list!")
         self.w.parent = parent
