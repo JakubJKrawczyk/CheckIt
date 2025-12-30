@@ -1,16 +1,32 @@
 import os
 import json
 from typing import Optional
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.config import undefined
 from starlette.websockets import WebSocket
 from pydantic import BaseModel
-from .models.api.response import Response, success
+from .models.api.response import Response, success, error
 from .consts.messages import *
 from .models.internal.windows.window_model import window_model
+from .models.api.pdf_requests import (
+    PatternSearchRequestModel,
+    PatternMatchResponse,
+    PatternExtractionRequest,
+    RegionRequest
+)
+from .models.internal.PDF.pattern_search import PatternSearchRequest
+from .models.internal.PDF.pdf_region import pdf_region
+from .models.internal.PDF.pattern_extraction_config import PatternExtractionConfig
+from .models.internal.PDF.column_region import ColumnRegion
+from .models.internal.PDF.separated_column_config import SeparatedColumnConfig
+from .models.webservice.comparer_core.extraction_strategies.pattern_matching_extractor import (
+    PatternMatchingSearcher,
+    PatternMatchingExtractor
+)
+import tempfile
 
 # VARIABLES
 # VARIABLES
@@ -136,7 +152,41 @@ async def websocket_endpoint(websocket: WebSocket, window_id: str):
     return await window_manager.remove_websocket(window_id)
 
 
+# EXCERL ENDPOINTS
+from .utillities.erxtractor import extractor
+@app.post("/extract/excel")
+def extract_from_excel_file(excel_file_path: str):
 
+    if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
+
+        df: pd.DataFrame = extractor.excel_extractor.extract(excel_file_path)
+        data = df.to_dict(orient="records")
+        return Response(success=success(f"Excel retrieved successfully! \n path: {excel_file_path}", data= data ))
+    
+    else:
+        return Response(error=TYPICAL_ERRORS[ERROR_TYPES.FILE_NOT_FOUND])
+
+#COMPARE ENDPOINTS
+import pandas as pd
+from typing import Any
+from .utillities.comparator import comparator
+from .models.webservice.comparer_core.IData_core import FileType
+
+@app.post("/compare")
+def compare_files(file1: list[dict[str, Any]], file2: list[dict[str, Any]]):
+
+    if file1 and file2:
+        df1 = pd.DataFrame(file1)
+        df2 = pd.DataFrame(file2)
+
+        compare_result: list[int] | Exception = comparator.compare(df1, FileType.Excel, df2, FileType.EXCEL)
+
+        if compare_result is Exception:
+            return Response(error=TYPICAL_ERRORS[ERROR_TYPES.COMPARE_ERROR])
+        else:
+            return Response(success=success("Udało się porównać pliki!", data={"not_equal_rows": compare_result, "is_equal": len(compare_result) == 0}))
+    else:
+        return Response(error=TYPICAL_ERRORS[ERROR_TYPES.PASSED_PARAMETER_IS_NULL])
 
 # STATIC FILES
 ## get asset by path

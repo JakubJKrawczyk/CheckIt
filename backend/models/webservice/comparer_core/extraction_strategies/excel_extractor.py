@@ -1,8 +1,8 @@
 from ..core_extractor import IDataExtractor
-from ..IData_core import DataAddress
+from typing import Any
 
 class ExcelExtractor(IDataExtractor):
-    def extract(self, file_path: str, address: DataAddress) -> list:
+    def extract(self, file_path: str, key_col_name: str) -> list:
         import pandas as pd
-        df = pd.read_excel(file_path, sheet_name=address.sheet_name)
-        return df[address.column_letter][address.row_index].tolist()
+        df = pd.read_excel(file_path, index_col=key_col_name)
+        return df
