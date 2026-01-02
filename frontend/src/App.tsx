@@ -1,386 +1,696 @@
-import { useState, useRef, useEffect } from "react";
-import InternalApi from "./internal_api/internalApi";
-import type {
-  PatternMatch,
-  Region,
-  ColumnRegion,
-  SeparatedColumnConfig,
-  PatternSearchRequest,
-} from "./internal_api/internalApi.pdf";
-import { usePdfRenderer } from "./hooks/usePdfRenderer";
+import { useState } from "react";
 
-const api = new InternalApi();
+interface ColumnPair {
+  file1Column: string;
+  file2Column: string;
+}
+
+interface DuplicateColumnAction {
+  column: string;
+  action: "first" | "last" | "min" | "max" | "sum" | "custom";
+  customValue?: string;
+}
+
+const styles = {
+  container: {
+    minHeight: "100vh",
+    width: "100%",
+    margin: 0,
+    padding: "40px 20px",
+    backgroundColor: "#121212",
+    color: "#e0e0e0",
+    boxSizing: "border-box" as const,
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  },
+  content: {
+    maxWidth: "1100px",
+    width: "100%",
+    margin: "0 auto",
+  },
+  title: {
+    textAlign: "center" as const,
+    marginBottom: "40px",
+    fontSize: "2.2rem",
+    color: "#ffffff",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "30px",
+    marginBottom: "40px",
+  },
+  card: {
+    backgroundColor: "#1e1e1e",
+    borderRadius: "12px",
+    padding: "25px",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
+    border: "1px solid #2e2e2e",
+  },
+  cardTitle: {
+    textAlign: "center" as const,
+    marginBottom: "20px",
+    fontSize: "1.3rem",
+    color: "#ffffff",
+  },
+  inputGroup: {
+    display: "flex",
+    gap: "10px",
+    marginBottom: "15px",
+  },
+  input: {
+    flex: 1,
+    padding: "12px 15px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #3a3a3a",
+    borderRadius: "8px",
+    color: "#e0e0e0",
+    fontSize: "14px",
+    outline: "none",
+  },
+  inputSmall: {
+    padding: "8px 12px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #3a3a3a",
+    borderRadius: "6px",
+    color: "#e0e0e0",
+    fontSize: "13px",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box" as const,
+  },
+  button: {
+    padding: "12px 20px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #3a3a3a",
+    borderRadius: "8px",
+    color: "#e0e0e0",
+    cursor: "pointer",
+    fontSize: "14px",
+    transition: "all 0.3s ease",
+  },
+  buttonPrimary: {
+    padding: "15px 40px",
+    backgroundColor: "#4a4a4a",
+    border: "none",
+    borderRadius: "8px",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "bold" as const,
+    transition: "all 0.3s ease",
+  },
+  buttonSecondary: {
+    padding: "10px 20px",
+    backgroundColor: "#3a3a3a",
+    border: "1px solid #4a4a4a",
+    borderRadius: "8px",
+    color: "#e0e0e0",
+    cursor: "pointer",
+    fontSize: "14px",
+    transition: "all 0.3s ease",
+    marginRight: "10px",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  select: {
+    width: "100%",
+    padding: "12px 15px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #3a3a3a",
+    borderRadius: "8px",
+    color: "#e0e0e0",
+    fontSize: "14px",
+    outline: "none",
+    cursor: "pointer",
+  },
+  selectSmall: {
+    padding: "8px 12px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #3a3a3a",
+    borderRadius: "6px",
+    color: "#e0e0e0",
+    fontSize: "13px",
+    outline: "none",
+    cursor: "pointer",
+    width: "100%",
+    boxSizing: "border-box" as const,
+  },
+  label: {
+    display: "block",
+    marginBottom: "8px",
+    color: "#9e9e9e",
+    fontSize: "14px",
+  },
+  successText: {
+    color: "#66bb6a",
+    margin: "10px 0",
+    textAlign: "center" as const,
+    fontSize: "14px",
+  },
+  errorText: {
+    color: "#ef5350",
+    textAlign: "center" as const,
+    padding: "15px",
+    backgroundColor: "rgba(239, 83, 80, 0.1)",
+    borderRadius: "8px",
+    marginTop: "20px",
+    border: "1px solid rgba(239, 83, 80, 0.3)",
+  },
+  duplicateBox: {
+    marginTop: "20px",
+    padding: "20px",
+    border: "1px solid #ffa726",
+    borderRadius: "10px",
+    backgroundColor: "rgba(255, 167, 38, 0.05)",
+  },
+  duplicateTitle: {
+    color: "#ffa726",
+    margin: "0 0 15px 0",
+    textAlign: "center" as const,
+    fontSize: "1rem",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse" as const,
+    backgroundColor: "#1e1e1e",
+    borderRadius: "10px",
+    overflow: "hidden",
+  },
+  th: {
+    padding: "15px",
+    textAlign: "center" as const,
+    backgroundColor: "#252525",
+    color: "#ffffff",
+    fontWeight: "600" as const,
+    borderBottom: "1px solid #3a3a3a",
+  },
+  td: {
+    padding: "12px 15px",
+    textAlign: "center" as const,
+    borderBottom: "1px solid #2e2e2e",
+    color: "#e0e0e0",
+  },
+  actionButton: {
+    padding: "8px 16px",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "500" as const,
+  },
+  addButton: {
+    backgroundColor: "#66bb6a",
+    color: "#121212",
+  },
+  removeButton: {
+    backgroundColor: "#ef5350",
+    color: "#ffffff",
+  },
+  sectionTitle: {
+    textAlign: "center" as const,
+    marginBottom: "25px",
+    fontSize: "1.5rem",
+    color: "#ffffff",
+  },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "25px",
+  },
+  buttonGroup: {
+    display: "flex",
+    gap: "10px",
+  },
+  resultSuccess: {
+    color: "#66bb6a",
+    textAlign: "center" as const,
+    fontWeight: "bold" as const,
+    fontSize: "1.3rem",
+    padding: "20px",
+    backgroundColor: "rgba(102, 187, 106, 0.1)",
+    borderRadius: "10px",
+    marginTop: "30px",
+    border: "1px solid rgba(102, 187, 106, 0.3)",
+  },
+};
 
 function App() {
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [step, setStep] = useState<number>(1);
-  const [patternRegion, setPatternRegion] = useState<Region | null>(null);
-  const [patternPage, setPatternPage] = useState<number>(1);
-  const [matches, setMatches] = useState<PatternMatch[]>([]);
-  const [columnRegions, setColumnRegions] = useState<ColumnRegion[]>([]);
-  const [separatedConfigs, setSeparatedConfigs] = useState<SeparatedColumnConfig[]>([]);
-  const [extractedData, setExtractedData] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [file1Path, setFile1Path] = useState("");
+  const [file1Columns, setFile1Columns] = useState<string[]>([]);
+  const [file1KeyColumn, setFile1KeyColumn] = useState("");
+  const [file1DuplicateActions, setFile1DuplicateActions] = useState<DuplicateColumnAction[]>([]);
+  const [file1HasDuplicates, setFile1HasDuplicates] = useState(false);
+
+  const [file2Path, setFile2Path] = useState("");
+  const [file2Columns, setFile2Columns] = useState<string[]>([]);
+  const [file2KeyColumn, setFile2KeyColumn] = useState("");
+  const [file2DuplicateActions, setFile2DuplicateActions] = useState<DuplicateColumnAction[]>([]);
+  const [file2HasDuplicates, setFile2HasDuplicates] = useState(false);
+
+  const [columnPairs, setColumnPairs] = useState<ColumnPair[]>([]);
+  const [newPair, setNewPair] = useState<ColumnPair>({ file1Column: "", file2Column: "" });
+
+  const [differences, setDifferences] = useState<any[]>([]);
+  const [isEqual, setIsEqual] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [isDrawing, setIsDrawing] = useState<boolean>(false);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
-  const [currentRect, setCurrentRect] = useState<Region | null>(null);
+  const fetchColumns = async (path: string): Promise<string[]> => {
+    const params = new URLSearchParams({ excel_file_path: path });
+    const response = await fetch(`http://localhost:8000/extract/excel/columns?${params}`);
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message);
+    return result.success.data;
+  };
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  const { renderPage, loading: pdfLoading, error: pdfError, pageCount } = usePdfRenderer();
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPdfFile(file);
-      setStep(2);
+  const browseFile = async (
+    setPath: (path: string) => void,
+    setColumns: (cols: string[]) => void,
+    setKeyColumn: (key: string) => void,
+    setDuplicateActions: (actions: DuplicateColumnAction[]) => void,
+    setHasDuplicates: (has: boolean) => void
+  ) => {
+    try {
+      const response = await fetch("http://localhost:8000/browse/file");
+      const result = await response.json();
+      if (result.path) {
+        setPath(result.path);
+        setKeyColumn("");
+        setHasDuplicates(false);
+        setDuplicateActions([]);
+        const columns = await fetchColumns(result.path);
+        setColumns(columns);
+      }
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
-  // Re-render PDF when page number changes or file is uploaded
-  useEffect(() => {
-    const renderPdfPage = async () => {
-      if (!pdfFile || !pdfCanvasRef.current || step < 2) return;
-
-      try {
-        const { width, height } = await renderPage(pdfCanvasRef.current, pdfFile, patternPage);
-
-        // Update the drawing canvas to match PDF canvas size
-        if (canvasRef.current) {
-          canvasRef.current.width = width;
-          canvasRef.current.height = height;
+  const checkDuplicates = async (
+    path: string,
+    keyColumn: string,
+    columns: string[],
+    setHasDuplicates: (has: boolean) => void,
+    setDuplicateActions: (actions: DuplicateColumnAction[]) => void
+  ) => {
+    try {
+      const response = await fetch("http://localhost:8000/check-duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_path: path, key_column: keyColumn }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        const hasDups = result.success.data.has_duplicates;
+        setHasDuplicates(hasDups);
+        if (hasDups) {
+          setDuplicateActions(
+            columns.filter((col) => col !== keyColumn).map((col) => ({ column: col, action: "first" as const }))
+          );
         }
-      } catch (err) {
-        console.error("Failed to render PDF:", err);
       }
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleKeyColumnChange = async (
+    keyColumn: string,
+    path: string,
+    columns: string[],
+    setKeyColumn: (key: string) => void,
+    setHasDuplicates: (has: boolean) => void,
+    setDuplicateActions: (actions: DuplicateColumnAction[]) => void
+  ) => {
+    setKeyColumn(keyColumn);
+    if (keyColumn && path) {
+      await checkDuplicates(path, keyColumn, columns, setHasDuplicates, setDuplicateActions);
+    }
+  };
+
+  const updateDuplicateAction = (
+    actions: DuplicateColumnAction[],
+    setActions: (actions: DuplicateColumnAction[]) => void,
+    columnIndex: number,
+    action: "first" | "last" | "min" | "max" | "sum" | "custom",
+    customValue?: string
+  ) => {
+    const updated = [...actions];
+    updated[columnIndex] = {
+      ...updated[columnIndex],
+      action,
+      customValue: action === "custom" ? customValue : undefined,
     };
-
-    renderPdfPage();
-  }, [patternPage, pdfFile, step, renderPage]);
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setIsDrawing(true);
-    setStartPoint({ x, y });
+    setActions(updated);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !startPoint || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const width = x - startPoint.x;
-    const height = y - startPoint.y;
-
-    setCurrentRect({
-      x: startPoint.x,
-      y: startPoint.y,
-      width,
-      height,
-    });
-
-    drawCanvas();
-  };
-
-  const handleMouseUp = () => {
-    if (currentRect && step === 2) {
-      setPatternRegion(currentRect);
-      setStep(3);
-    } else if (currentRect && step === 4) {
-      const columnName = prompt("Enter column name:");
-      if (columnName) {
-        setColumnRegions([
-          ...columnRegions,
-          {
-            column_name: columnName,
-            region: currentRect,
-            page: patternPage,
-          },
-        ]);
-      }
+  const addColumnPair = () => {
+    if (!newPair.file1Column || !newPair.file2Column) {
+      setError("Wybierz obie kolumny");
+      return;
     }
-    setIsDrawing(false);
-    setStartPoint(null);
-    setCurrentRect(null);
-  };
-
-  const drawCanvas = () => {
-    if (!canvasRef.current) return;
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-    if (currentRect) {
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-    }
-
-    if (step === 3 && matches.length > 0) {
-      matches.forEach((match) => {
-        ctx.strokeStyle = "blue";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(
-          match.region.x,
-          match.region.y,
-          match.region.width,
-          match.region.height
-        );
-      });
-    }
-
-    if (step >= 4 && columnRegions.length > 0) {
-      columnRegions.forEach((col, idx) => {
-        const colors = ["green", "orange", "purple", "cyan", "magenta"];
-        ctx.strokeStyle = colors[idx % colors.length];
-        ctx.lineWidth = 2;
-        ctx.strokeRect(col.region.x, col.region.y, col.region.width, col.region.height);
-      });
-    }
-  };
-
-  const searchPattern = async () => {
-    if (!pdfFile || !patternRegion) return;
-
-    setLoading(true);
+    setColumnPairs([...columnPairs, newPair]);
+    setNewPair({ file1Column: "", file2Column: "" });
     setError(null);
+  };
 
-    try {
-      const searchRequest: PatternSearchRequest = {
-        pattern_region: patternRegion,
-        page: patternPage,
-      };
+  const removeColumnPair = (index: number) => {
+    setColumnPairs(columnPairs.filter((_, i) => i !== index));
+  };
 
-      const results = await api.pdf.searchPattern(pdfFile, searchRequest);
-      setMatches(results);
-      setStep(4);
-      setTimeout(() => drawCanvas(), 100);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  const addAllMatchingColumns = () => {
+    // Znajdź wspólne kolumny (te same nazwy)
+    const commonColumns = file1Columns.filter(
+      (col) => file2Columns.includes(col) && col !== file1KeyColumn && col !== file2KeyColumn
+    );
+
+    // Dodaj tylko te, które jeszcze nie są zmapowane
+    const existingFile1Cols = columnPairs.map((p) => p.file1Column);
+    const newPairs = commonColumns
+      .filter((col) => !existingFile1Cols.includes(col))
+      .map((col) => ({ file1Column: col, file2Column: col }));
+
+    if (newPairs.length > 0) {
+      setColumnPairs([...columnPairs, ...newPairs]);
+      setError(null);
+    } else {
+      setError("Brak nowych wspólnych kolumn do dodania");
     }
   };
 
-  const extractData = async () => {
-    if (!pdfFile || !patternRegion || columnRegions.length === 0) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const config = {
-        pattern_search: {
-          pattern_region: patternRegion,
-          page: patternPage,
-        },
-        column_regions: columnRegions,
-        separated_configs: separatedConfigs.length > 0 ? separatedConfigs : undefined,
-      };
-
-      const data = await api.pdf.extractData(pdfFile, config);
-      setExtractedData(data);
-      setStep(5);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const clearAllColumnPairs = () => {
+    setColumnPairs([]);
   };
 
-  const addSeparatedConfig = () => {
-    if (!currentRect) {
-      alert("Please draw a region first");
+  const handleCompare = async () => {
+    if (!file1Path || !file2Path) {
+      setError("Wybierz oba pliki");
+      return;
+    }
+    if (!file1KeyColumn || !file2KeyColumn) {
+      setError("Wybierz kolumny klucz");
+      return;
+    }
+    if (columnPairs.length === 0) {
+      setError("Dodaj przynajmniej jedną parę kolumn do porównania");
       return;
     }
 
-    const separator = prompt("Enter separator (e.g., ', '):");
-    if (!separator) return;
+    setLoading(true);
+    setError(null);
+    setDifferences([]);
+    setIsEqual(null);
 
-    const mapping: Record<number, string> = {};
-    let idx = 0;
-    while (true) {
-      const colName = prompt(`Enter column name for index ${idx} (or cancel to finish):`);
-      if (!colName) break;
-      mapping[idx] = colName;
-      idx++;
-    }
+    try {
+      const response = await fetch("http://localhost:8000/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file1_path: file1Path,
+          file1_key_column: file1KeyColumn,
+          file1_duplicate_actions: file1DuplicateActions,
+          file2_path: file2Path,
+          file2_key_column: file2KeyColumn,
+          file2_duplicate_actions: file2DuplicateActions,
+          column_pairs: columnPairs,
+        }),
+      });
 
-    if (Object.keys(mapping).length > 0) {
-      setSeparatedConfigs([
-        ...separatedConfigs,
-        {
-          region: currentRect,
-          page: patternPage,
-          separator,
-          index_to_column: mapping,
-        },
-      ]);
+      const result = await response.json();
+      if (result.error) {
+        setError(result.error.details || result.error.message);
+      } else {
+        setDifferences(result.success.data.result);
+        setIsEqual(result.success.data.is_equal);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const renderDuplicateConfig = (
+    hasDuplicates: boolean,
+    actions: DuplicateColumnAction[],
+    setActions: (actions: DuplicateColumnAction[]) => void
+  ) => {
+    if (!hasDuplicates) return null;
+
+    return (
+      <div style={styles.duplicateBox}>
+        <h4 style={styles.duplicateTitle}>⚠️ Znaleziono duplikaty</h4>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={{ ...styles.th, width: "35%" }}>Kolumna</th>
+              <th style={{ ...styles.th, width: "30%" }}>Akcja</th>
+              <th style={{ ...styles.th, width: "35%" }}>Wartość</th>
+            </tr>
+          </thead>
+          <tbody>
+            {actions.map((action, idx) => (
+              <tr key={idx}>
+                <td style={styles.td}>{action.column}</td>
+                <td style={styles.td}>
+                  <select
+                    value={action.action}
+                    onChange={(e) =>
+                      updateDuplicateAction(actions, setActions, idx, e.target.value as "first" | "last" | "min" | "max" | "sum" | "custom", action.customValue)
+                    }
+                    style={styles.selectSmall}
+                  >
+                    <option value="first">Pierwszy</option>
+                    <option value="last">Ostatni</option>
+                    <option value="min">Minimum (data/liczba)</option>
+                    <option value="max">Maximum (data/liczba)</option>
+                    <option value="sum">Sumuj (liczby)</option>
+                    <option value="custom">Ustaw wartość</option>
+                  </select>
+                </td>
+                <td style={styles.td}>
+                  {action.action === "custom" ? (
+                    <input
+                      type="text"
+                      value={action.customValue || ""}
+                      onChange={(e) => updateDuplicateAction(actions, setActions, idx, "custom", e.target.value)}
+                      style={styles.inputSmall}
+                      placeholder="Wpisz wartość"
+                    />
+                  ) : (
+                    <span style={{ color: "#616161" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const bothFilesLoaded = file1Columns.length > 0 && file2Columns.length > 0;
+  const keysSelected = file1KeyColumn && file2KeyColumn;
+
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>PDF Pattern Extraction</h1>
+    <div style={styles.container}>
+      <div style={styles.content}>
+        <h1 style={styles.title}>Porównanie plików Excel</h1>
 
-      {step === 1 && (
-        <div>
-          <h2>Step 1: Upload PDF</h2>
-          <input type="file" accept="application/pdf" onChange={handleFileUpload} />
-        </div>
-      )}
-
-      {step === 2 && pdfFile && (
-        <div>
-          <h2>Step 2: Select Pattern Region</h2>
-          <p>Draw a rectangle around the pattern you want to search for</p>
-          {pdfLoading && <p>Loading PDF...</p>}
-          {pdfError && <p style={{ color: "red" }}>{pdfError}</p>}
-          <div style={{ marginBottom: "20px" }}>
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <canvas
-                ref={pdfCanvasRef}
-                style={{ maxWidth: "800px", display: "block", border: "1px solid #ccc" }}
-              />
-              <canvas
-                ref={canvasRef}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  cursor: "crosshair",
-                  pointerEvents: "auto",
-                }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-              />
+        <div style={styles.grid}>
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>Plik 1</h3>
+            <div style={styles.inputGroup}>
+              <input type="text" value={file1Path} readOnly placeholder="Wybierz plik..." style={styles.input} />
+              <button
+                onClick={() => browseFile(setFile1Path, setFile1Columns, setFile1KeyColumn, setFile1DuplicateActions, setFile1HasDuplicates)}
+                style={styles.button}
+              >
+                Przeglądaj
+              </button>
             </div>
+
+            {file1Columns.length > 0 && (
+              <>
+                <p style={styles.successText}>✓ Załadowano {file1Columns.length} kolumn</p>
+                <label style={styles.label}>Kolumna klucz:</label>
+                <select
+                  value={file1KeyColumn}
+                  onChange={(e) =>
+                    handleKeyColumnChange(e.target.value, file1Path, file1Columns, setFile1KeyColumn, setFile1HasDuplicates, setFile1DuplicateActions)
+                  }
+                  style={styles.select}
+                >
+                  <option value="">-- Wybierz klucz --</option>
+                  {file1Columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+                {renderDuplicateConfig(file1HasDuplicates, file1DuplicateActions, setFile1DuplicateActions)}
+              </>
+            )}
           </div>
-          <div style={{ marginTop: "10px", position: "relative", zIndex: 1000 }}>
-            <label>
-              Page number:
-              <input
-                type="number"
-                value={patternPage}
-                onChange={(e) => setPatternPage(parseInt(e.target.value))}
-                min={1}
-                max={pageCount || 1}
-                style={{ marginLeft: "5px", width: "60px" }}
-              />
-            </label>
-            {pageCount > 0 && <span style={{ marginLeft: "10px" }}>of {pageCount}</span>}
+
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>Plik 2</h3>
+            <div style={styles.inputGroup}>
+              <input type="text" value={file2Path} readOnly placeholder="Wybierz plik..." style={styles.input} />
+              <button
+                onClick={() => browseFile(setFile2Path, setFile2Columns, setFile2KeyColumn, setFile2DuplicateActions, setFile2HasDuplicates)}
+                style={styles.button}
+              >
+                Przeglądaj
+              </button>
+            </div>
+
+            {file2Columns.length > 0 && (
+              <>
+                <p style={styles.successText}>✓ Załadowano {file2Columns.length} kolumn</p>
+                <label style={styles.label}>Kolumna klucz:</label>
+                <select
+                  value={file2KeyColumn}
+                  onChange={(e) =>
+                    handleKeyColumnChange(e.target.value, file2Path, file2Columns, setFile2KeyColumn, setFile2HasDuplicates, setFile2DuplicateActions)
+                  }
+                  style={styles.select}
+                >
+                  <option value="">-- Wybierz klucz --</option>
+                  {file2Columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+                {renderDuplicateConfig(file2HasDuplicates, file2DuplicateActions, setFile2DuplicateActions)}
+              </>
+            )}
           </div>
         </div>
-      )}
 
-      {step === 3 && (
-        <div>
-          <h2>Step 3: Search Pattern</h2>
-          <button onClick={searchPattern} disabled={loading}>
-            {loading ? "Searching..." : "Search Pattern"}
-          </button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-          {matches.length > 0 && (
-            <div>
-              <p>Found {matches.length} matches</p>
-              <div style={{ position: "relative", display: "inline-block" }}>
-                <canvas
-                  ref={pdfCanvasRef}
-                  style={{ maxWidth: "800px", display: "block", border: "1px solid #ccc" }}
-                />
-                <canvas
-                  ref={canvasRef}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                  }}
-                />
+        {bothFilesLoaded && keysSelected && (
+          <div style={{ ...styles.card, marginBottom: "30px" }}>
+            <div style={styles.sectionHeader}>
+              <h3 style={{ ...styles.sectionTitle, marginBottom: 0 }}>Mapowanie kolumn do porównania</h3>
+              <div style={styles.buttonGroup}>
+                <button onClick={addAllMatchingColumns} style={styles.buttonSecondary}>
+                  Dodaj wspólne
+                </button>
+                <button
+                  onClick={clearAllColumnPairs}
+                  style={{ ...styles.buttonSecondary, backgroundColor: "#4a3a3a", borderColor: "#5a4a4a" }}
+                  disabled={columnPairs.length === 0}
+                >
+                  Wyczyść
+                </button>
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {step === 4 && (
-        <div>
-          <h2>Step 4: Define Column Regions</h2>
-          <p>Draw rectangles around column values</p>
-          <div style={{ marginBottom: "20px" }}>
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <canvas
-                ref={pdfCanvasRef}
-                style={{ maxWidth: "800px", display: "block", border: "1px solid #ccc" }}
-              />
-              <canvas
-                ref={canvasRef}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  cursor: "crosshair",
-                  pointerEvents: "auto",
-                }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-              />
-            </div>
-          </div>
-          <div style={{ marginTop: "10px", position: "relative", zIndex: 1000 }}>
-            <h3>Defined Columns:</h3>
-            <ul>
-              {columnRegions.map((col, idx) => (
-                <li key={idx}>{col.column_name}</li>
-              ))}
-            </ul>
-            <button onClick={addSeparatedConfig} style={{ marginRight: "10px" }}>
-              Add Separated Column Config
-            </button>
-            <button onClick={extractData} disabled={loading || columnRegions.length === 0}>
-              {loading ? "Extracting..." : "Extract Data"}
-            </button>
-          </div>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-        </div>
-      )}
-
-      {step === 5 && extractedData.length > 0 && (
-        <div>
-          <h2>Step 5: Extracted Data</h2>
-          <table border={1} style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead>
-              <tr>
-                {Object.keys(extractedData[0]).map((key) => (
-                  <th key={key} style={{ padding: "8px" }}>
-                    {key}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {extractedData.map((row, idx) => (
-                <tr key={idx}>
-                  {Object.values(row).map((val: any, i) => (
-                    <td key={i} style={{ padding: "8px" }}>
-                      {val}
-                    </td>
-                  ))}
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Kolumna z Pliku 1</th>
+                  <th style={styles.th}>Kolumna z Pliku 2</th>
+                  <th style={{ ...styles.th, width: "120px" }}>Akcja</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {columnPairs.map((pair, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{pair.file1Column}</td>
+                    <td style={styles.td}>{pair.file2Column}</td>
+                    <td style={styles.td}>
+                      <button
+                        onClick={() => removeColumnPair(idx)}
+                        style={{ ...styles.actionButton, ...styles.removeButton }}
+                      >
+                        Usuń
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={styles.td}>
+                    <select
+                      value={newPair.file1Column}
+                      onChange={(e) => setNewPair({ ...newPair, file1Column: e.target.value })}
+                      style={styles.select}
+                    >
+                      <option value="">-- Wybierz --</option>
+                      {file1Columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={styles.td}>
+                    <select
+                      value={newPair.file2Column}
+                      onChange={(e) => setNewPair({ ...newPair, file2Column: e.target.value })}
+                      style={styles.select}
+                    >
+                      <option value="">-- Wybierz --</option>
+                      {file2Columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={styles.td}>
+                    <button
+                      onClick={addColumnPair}
+                      style={{ ...styles.actionButton, ...styles.addButton }}
+                    >
+                      Dodaj
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ textAlign: "center", marginBottom: "30px" }}>
+          <button
+            onClick={handleCompare}
+            disabled={loading || !file1Path || !file2Path || !keysSelected || columnPairs.length === 0}
+            style={{
+              ...styles.buttonPrimary,
+              ...(loading || !file1Path || !file2Path || !keysSelected || columnPairs.length === 0 ? styles.buttonDisabled : {}),
+            }}
+          >
+            {loading ? "Porównuję..." : "Porównaj"}
+          </button>
         </div>
-      )}
+
+        {error && <p style={styles.errorText}>{error}</p>}
+
+        {isEqual === true && <p style={styles.resultSuccess}>✓ Pliki są identyczne!</p>}
+
+        {isEqual === false && differences.length > 0 && (
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>Różnice ({differences.length})</h2>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Klucz</th>
+                  <th style={styles.th}>Kolumna</th>
+                  <th style={styles.th}>Plik 1</th>
+                  <th style={styles.th}>Plik 2</th>
+                </tr>
+              </thead>
+              <tbody>
+                {differences.map((diff, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{diff.key}</td>
+                    <td style={styles.td}>{diff.column}</td>
+                    <td style={{ ...styles.td, color: "#ef5350" }}>{String(diff.value1)}</td>
+                    <td style={{ ...styles.td, color: "#66bb6a" }}>{String(diff.value2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

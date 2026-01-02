@@ -18,7 +18,7 @@ from .models.api.pdf_requests import (
     PatternExtractionRequest,
     RegionRequest
 )
-
+from tkinter import Tk, filedialog
 import tempfile
 
 # VARIABLES
@@ -90,6 +90,24 @@ async def list_windows():
     result = await window_manager.list_windows()
     return result.dict()
 
+@app.get("/browse/file")
+def browse_file():
+    root = Tk()
+    root.withdraw()  # Ukryj główne okno
+    root.attributes('-topmost', True)
+    
+    file_path = filedialog.askopenfilename(
+        title="Wybierz plik Excel",
+        filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+    )
+    
+    root.destroy()
+    
+    if file_path:
+        return {"path": file_path}
+    else:
+        return {"path": None}
+
 # STORAGE ENDPOINTS
 
 ## save data to storage
@@ -120,7 +138,7 @@ async def remove_from_storage(window_id: str, key: str):
 # WEBSOCKET ENDPOINTS
 ## create and operate websocket
 @app.websocket("/ws/{window_id}")
-async def websocket_endpoint(window_id: str, websocket: WebSocket = Body()):
+async def websocket_endpoint(websocket: WebSocket, window_id: str):
     if window_id not in [w.window_id for w in window_manager.windows]:
         return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
 
@@ -145,8 +163,9 @@ async def websocket_endpoint(window_id: str, websocket: WebSocket = Body()):
     return await window_manager.remove_websocket(window_id)
 
 
-# EXCERL ENDPOINTS
-from .utillities.erxtractor import extractor
+# EXCEL ENDPOINTS
+from .utillities.extractor import extractor
+
 @app.get("/extract/excel")
 def extract_from_excel_file(excel_file_path:str, key_col_name: str ):
 
@@ -159,28 +178,182 @@ def extract_from_excel_file(excel_file_path:str, key_col_name: str ):
     else:
         return Response(error=TYPICAL_ERRORS[ERROR_TYPES.FILE_NOT_FOUND])
 
+@app.get("/extract/excel/columns")
+def get_excel_columns(excel_file_path: str):
+    
+    if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
+
+        df: pd.DataFrame = extractor.excel_extractor.extract(excel_file_path)
+        return Response(success=success(f"Excel columns! \n path: {excel_file_path}", data= df.columns.tolist() ))
+    
+    else:
+        return Response(error=TYPICAL_ERRORS[ERROR_TYPES.FILE_NOT_FOUND])
+    
 #COMPARE ENDPOINTS
 import pandas as pd
 from typing import Any
 from .utillities.comparator import comparator
+from pydantic import BaseModel
+
+class DuplicateColumnAction(BaseModel):
+    column: str
+    action: str  # "first", "sum", "custom"
+    customValue: str | None = None
+
+class CheckDuplicatesRequest(BaseModel):
+    file_path: str
+    key_column: str
+
+@app.post("/check-duplicates")
+def check_duplicates(request: CheckDuplicatesRequest):
+    try:
+        df = extractor.excel_extractor.extract(request.file_path)
+        df = df.where(pd.notnull(df), None)
+        
+        duplicated = df.duplicated(subset=[request.key_column], keep=False)
+        has_duplicates = duplicated.any()
+        duplicate_count = df[duplicated][request.key_column].nunique()
+        
+        return Response(success=success("Sprawdzono", data={
+            "has_duplicates": bool(has_duplicates),
+            "duplicate_keys_count": int(duplicate_count)
+        }))
+    except Exception as e:
+        return Response(error=error(ERROR_TYPES.COMPARE_ERROR, str(e)))
+
+
+class ColumnPair(BaseModel):
+    file1Column: str
+    file2Column: str
+
+class CompareRequest(BaseModel):
+    file1_path: str
+    file1_key_column: str
+    file1_duplicate_actions: list[DuplicateColumnAction] = []
+    file2_path: str
+    file2_key_column: str
+    file2_duplicate_actions: list[DuplicateColumnAction] = []
+    column_pairs: list[ColumnPair]
+
+def values_equal(val1, val2, tolerance=0.01):
+    """Porównuje wartości z tolerancją dla floatów"""
+    if val1 is None and val2 is None:
+        return True
+    if val1 is None or val2 is None:
+        return False
+    
+    try:
+        f1 = float(val1)
+        f2 = float(val2)
+        return abs(f1 - f2) < tolerance
+    except (ValueError, TypeError):
+        return val1 == val2
+
+def format_value(val):
+    """Zaokrągla floaty do 2 miejsc po przecinku"""
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        return round(f, 2)
+    except (ValueError, TypeError):
+        return val
+
+def resolve_duplicates(df: pd.DataFrame, key_column: str, actions: list[DuplicateColumnAction]) -> pd.DataFrame:
+    """Scala duplikaty według globalnej konfiguracji"""
+    
+    action_map = {a.column: a for a in actions}
+    result_rows = []
+    
+    for key, group in df.groupby(key_column):
+        if len(group) == 1:
+            result_rows.append(group.iloc[0].to_dict())
+            continue
+        
+        row = {key_column: key}
+        
+        for col in df.columns:
+            if col == key_column:
+                continue
+            
+            action_config = action_map.get(col)
+            action = action_config.action if action_config else "first"
+            custom_value = action_config.customValue if action_config else None
+            
+            if action == "first":
+                row[col] = group.iloc[0][col]
+            elif action == "last":
+                row[col] = group.iloc[-1][col]
+            elif action == "min":
+                try:
+                    row[col] = group[col].min()
+                except:
+                    row[col] = group.iloc[0][col]
+            elif action == "max":
+                try:
+                    row[col] = group[col].max()
+                except:
+                    row[col] = group.iloc[0][col]
+            elif action == "sum":
+                try:
+                    total = group[col].sum()
+                    row[col] = round(total, 2) if isinstance(total, float) else total
+                except:
+                    row[col] = group.iloc[0][col]
+            elif action == "custom":
+                row[col] = custom_value
+        
+        result_rows.append(row)
+    
+    return pd.DataFrame(result_rows)
 
 @app.post("/compare")
-def compare_files(file1: list[dict[str, Any]] = Body(), file1_key: str = Body(), file2: list[dict[str, Any]] = Body(), file2_key: str = Body()):
-
-    if file1 and file2:
-        df1 = pd.DataFrame(file1)
-        df1.set_index(file1_key)
-        df2 = pd.DataFrame(file2)
-        df2.set_index(file2_key)
-
-        compare_result: list[dict] | Exception = comparator.compare(df1, df2)
-
-        if isinstance(compare_result, Exception):
-            return Response(error=error(ERROR_TYPES.COMPARE_ERROR, str(compare_result)))
-        else:
-            return Response(success=success("Udało się porównać pliki!", data={"result": compare_result, "is_equal": len(compare_result) == 0}))
-    else:
-        return Response(error=TYPICAL_ERRORS[ERROR_TYPES.PASSED_PARAMETER_IS_NULL])
+def compare_files(request: CompareRequest):
+    try:
+        # Wczytaj pliki
+        df1 = extractor.excel_extractor.extract(request.file1_path)
+        df1 = df1.where(pd.notnull(df1), None)
+        
+        df2 = extractor.excel_extractor.extract(request.file2_path)
+        df2 = df2.where(pd.notnull(df2), None)
+        
+        # Rozwiąż duplikaty
+        if request.file1_duplicate_actions:
+            df1 = resolve_duplicates(df1, request.file1_key_column, request.file1_duplicate_actions)
+        
+        if request.file2_duplicate_actions:
+            df2 = resolve_duplicates(df2, request.file2_key_column, request.file2_duplicate_actions)
+        
+        # Ustaw klucze jako index
+        df1 = df1.set_index(request.file1_key_column)
+        df2 = df2.set_index(request.file2_key_column)
+        
+        # Porównaj wspólne klucze
+        common_keys = df1.index.intersection(df2.index)
+        
+        differences = []
+        for key in common_keys:
+            for pair in request.column_pairs:
+                val1 = df1.loc[key, pair.file1Column]
+                val2 = df2.loc[key, pair.file2Column]
+                
+                # Użyj tolerancji przy porównywaniu
+                if not values_equal(val1, val2):
+                    differences.append({
+                        "key": str(key),
+                        "column": f"{pair.file1Column} / {pair.file2Column}",
+                        "value1": format_value(val1),
+                        "value2": format_value(val2)
+                    })
+        
+        return Response(success=success("Porównano!", data={
+            "result": differences,
+            "is_equal": len(differences) == 0
+        }))
+        
+    except Exception as e:
+        return Response(error=error(ERROR_TYPES.COMPARE_ERROR, str(e)))
+    
 
 # STATIC FILES
 ## get asset by path

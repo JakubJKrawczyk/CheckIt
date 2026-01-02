@@ -9,7 +9,7 @@ class Comparator:
 
         pass
     
-    def compare(self,df1: DataFrame, df2: DataFrame ) -> list[dict] | Exception: 
+    def compare(self,df1: DataFrame, df2: DataFrame, column_pairs: list[dict]) -> list[dict] | Exception: 
         
         differences = []
         try:
@@ -18,19 +18,20 @@ class Comparator:
                 return Exception(f"DataFrames mają różne wymiary: {df1.shape} vs {df2.shape}")
             if not df1.columns.equals(df2.columns):
                 return Exception(f"DataFrames mają różne kolumny: {list(df1.columns)} vs {list(df2.columns)}")
+            if pair is None | pair["column1"] is None | pair["column2"] is None:
+                 return Exception(f"Compare wymaga podania przynajmniej jedną parę kolumn, które chce się porównać!")
 
-
-            mask = df1 != df2
+            
 
             for idx in df1.index:
-                for col in df1.columns:
-                    if mask.loc[idx, col]:
+                for pair in column_pairs:
+                    if df1[idx, pair["column1"]] != df2[idx, pair["column2"]]:
                         differences.append({
                         "index": idx,
-                        "column": col,
-                        "value1": df1.loc[idx, col],
-                        "value2": df2.loc[idx, col]
-                    })
+                        "columns": f"{pair["column1"]}:{pair["column2"]}",
+                        "value1": df1.loc[idx, pair["column1"]],
+                        "value2": df2.loc[idx, pair["column2"]]
+                         })
             
             return differences
         except Exception as e:
