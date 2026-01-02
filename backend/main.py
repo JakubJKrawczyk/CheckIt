@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi import Query, Body
 from starlette.middleware.cors import CORSMiddleware
 from starlette.config import undefined
 from starlette.websockets import WebSocket
@@ -17,15 +18,7 @@ from .models.api.pdf_requests import (
     PatternExtractionRequest,
     RegionRequest
 )
-from .models.internal.PDF.pattern_search import PatternSearchRequest
-from .models.internal.PDF.pdf_region import pdf_region
-from .models.internal.PDF.pattern_extraction_config import PatternExtractionConfig
-from .models.internal.PDF.column_region import ColumnRegion
-from .models.internal.PDF.separated_column_config import SeparatedColumnConfig
-from .models.webservice.comparer_core.extraction_strategies.pattern_matching_extractor import (
-    PatternMatchingSearcher,
-    PatternMatchingExtractor
-)
+
 import tempfile
 
 # VARIABLES
@@ -127,7 +120,7 @@ async def remove_from_storage(window_id: str, key: str):
 # WEBSOCKET ENDPOINTS
 ## create and operate websocket
 @app.websocket("/ws/{window_id}")
-async def websocket_endpoint(websocket: WebSocket, window_id: str):
+async def websocket_endpoint(window_id: str, websocket: WebSocket = Body()):
     if window_id not in [w.window_id for w in window_manager.windows]:
         return Response(error= TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND])
 
@@ -154,12 +147,12 @@ async def websocket_endpoint(websocket: WebSocket, window_id: str):
 
 # EXCERL ENDPOINTS
 from .utillities.erxtractor import extractor
-@app.post("/extract/excel")
-def extract_from_excel_file(excel_file_path: str):
+@app.get("/extract/excel")
+def extract_from_excel_file(excel_file_path:str, key_col_name: str ):
 
     if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
 
-        df: pd.DataFrame = extractor.excel_extractor.extract(excel_file_path)
+        df: pd.DataFrame = extractor.excel_extractor.extract(excel_file_path, key_col_name)
         data = df.to_dict(orient="records")
         return Response(success=success(f"Excel retrieved successfully! \n path: {excel_file_path}", data= data ))
     
@@ -170,21 +163,22 @@ def extract_from_excel_file(excel_file_path: str):
 import pandas as pd
 from typing import Any
 from .utillities.comparator import comparator
-from .models.webservice.comparer_core.IData_core import FileType
 
 @app.post("/compare")
-def compare_files(file1: list[dict[str, Any]], file2: list[dict[str, Any]]):
+def compare_files(file1: list[dict[str, Any]] = Body(), file1_key: str = Body(), file2: list[dict[str, Any]] = Body(), file2_key: str = Body()):
 
     if file1 and file2:
         df1 = pd.DataFrame(file1)
+        df1.set_index(file1_key)
         df2 = pd.DataFrame(file2)
+        df2.set_index(file2_key)
 
-        compare_result: list[int] | Exception = comparator.compare(df1, FileType.Excel, df2, FileType.EXCEL)
+        compare_result: list[dict] | Exception = comparator.compare(df1, df2)
 
-        if compare_result is Exception:
-            return Response(error=TYPICAL_ERRORS[ERROR_TYPES.COMPARE_ERROR])
+        if isinstance(compare_result, Exception):
+            return Response(error=error(ERROR_TYPES.COMPARE_ERROR, str(compare_result)))
         else:
-            return Response(success=success("Udało się porównać pliki!", data={"not_equal_rows": compare_result, "is_equal": len(compare_result) == 0}))
+            return Response(success=success("Udało się porównać pliki!", data={"result": compare_result, "is_equal": len(compare_result) == 0}))
     else:
         return Response(error=TYPICAL_ERRORS[ERROR_TYPES.PASSED_PARAMETER_IS_NULL])
 

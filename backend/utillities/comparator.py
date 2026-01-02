@@ -1,5 +1,7 @@
 from ..models.webservice.comparer_core.IData_core import FileType
 from typing import Any
+from pandas import DataFrame
+
 
 class Comparator:
 
@@ -7,13 +9,32 @@ class Comparator:
 
         pass
     
-    def compare(self,file_data1: Any, file_type1: FileType, file_data2: Any, file_type2: FileType ) -> list[int] | Exception:
+    def compare(self,df1: DataFrame, df2: DataFrame ) -> list[dict] | Exception: 
         
-        if file_type1 == FileType.EXCEL and file_type2 == FileType.EXCEL:
+        differences = []
+        try:
             
+            if df1.shape != df2.shape:
+                return Exception(f"DataFrames mają różne wymiary: {df1.shape} vs {df2.shape}")
+            if not df1.columns.equals(df2.columns):
+                return Exception(f"DataFrames mają różne kolumny: {list(df1.columns)} vs {list(df2.columns)}")
+
+
+            mask = df1 != df2
+
+            for idx in df1.index:
+                for col in df1.columns:
+                    if mask.loc[idx, col]:
+                        differences.append({
+                        "index": idx,
+                        "column": col,
+                        "value1": df1.loc[idx, col],
+                        "value2": df2.loc[idx, col]
+                    })
             
-            return []
-        else:
-             return Exception("Podane zestawienie plików nie jest obsługiwane!")
+            return differences
+        except Exception as e:
+            return e
+       
 
 comparator = Comparator()
