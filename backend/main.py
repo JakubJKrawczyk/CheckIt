@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from typing import Optional
 from fastapi import FastAPI, Request, UploadFile, File
@@ -22,20 +23,35 @@ from tkinter import Tk, filedialog
 import tempfile
 
 # VARIABLES
-# VARIABLES
 app = FastAPI()
 
 # CORS Configuration for development mode
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React dev server
+    allow_origins=[
+        "http://localhost:5173",      # React dev server
+        "http://localhost:8000",      # PyWebView local
+        "http://127.0.0.1:8000",      # PyWebView local (numeric)
+        "http://127.0.0.1:5173",      # React dev (numeric)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Determine base directory
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable (PyInstaller)
+    BASE_DIR = sys._MEIPASS
+else:
+    # Running in normal Python environment
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 DIST_DIR = os.path.join(BASE_DIR, "frontend", "dist")
+
+print(f"[INFO] BASE_DIR: {BASE_DIR}")
+print(f"[INFO] DIST_DIR: {DIST_DIR}")
+print(f"[INFO] DIST_DIR exists: {os.path.exists(DIST_DIR)}")
 
 # Import window_manager after app initialization to avoid circular imports
 from .utillities.window_manager import window_manager
@@ -90,23 +106,47 @@ async def list_windows():
     result = await window_manager.list_windows()
     return result.dict()
 
-@app.get("/browse/file")
-def browse_file():
-    root = Tk()
-    root.withdraw()  # Ukryj główne okno
-    root.attributes('-topmost', True)
-    
-    file_path = filedialog.askopenfilename(
-        title="Wybierz plik Excel",
-        filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
-    )
-    
-    root.destroy()
-    
-    if file_path:
-        return {"path": file_path}
-    else:
-        return {"path": None}
+@app.get("/api/browse/file")
+async def browse_file():
+    """Użyj natywnego dialoga PyWebView"""
+    try:
+        print("[DEBUG] browse_file called")
+        
+        # Pobierz główne okno
+        windows = await window_manager.list_windows()
+        if not windows.success or not windows.success.data["windows"]:
+            return {"path": None, "error": "No window available"}
+        
+        # Pobierz pierwsze okno z listy
+        first_window_id = windows.success.data["windows"][0]["id"]
+        window_obj = next((w for w in window_manager.windows if w.Id == first_window_id), None)
+        
+        if not window_obj:
+            return {"path": None, "error": "Window not found"}
+        
+        # Użyj webview native dialog
+        import webview
+        result = window_obj.w.create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=False,
+            file_types=('Excel files (*.xlsx;*.xls)', 'All files (*.*)')
+        )
+        
+        print(f"[DEBUG] Dialog result: {result}")
+        
+        if result and len(result) > 0:
+            file_path = result[0]
+            print(f"[DEBUG] Selected: {file_path}")
+            return {"path": file_path}
+        else:
+            print("[DEBUG] No file selected")
+            return {"path": None}
+            
+    except Exception as e:
+        print(f"[ERROR] browse_file error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"path": None, "error": str(e)}
 
 # STORAGE ENDPOINTS
 
@@ -165,8 +205,9 @@ async def websocket_endpoint(websocket: WebSocket, window_id: str):
 
 # EXCEL ENDPOINTS
 from .utillities.extractor import extractor
+import pandas as pd
 
-@app.get("/extract/excel")
+@app.get("/api/extract/excel")
 def extract_from_excel_file(excel_file_path:str, key_col_name: str ):
 
     if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
@@ -178,7 +219,7 @@ def extract_from_excel_file(excel_file_path:str, key_col_name: str ):
     else:
         return Response(error=TYPICAL_ERRORS[ERROR_TYPES.FILE_NOT_FOUND])
 
-@app.get("/extract/excel/columns")
+@app.get("/api/extract/excel/columns")
 def get_excel_columns(excel_file_path: str):
     
     if os.path.exists(excel_file_path) and os.path.isfile(excel_file_path):
@@ -190,10 +231,8 @@ def get_excel_columns(excel_file_path: str):
         return Response(error=TYPICAL_ERRORS[ERROR_TYPES.FILE_NOT_FOUND])
     
 #COMPARE ENDPOINTS
-import pandas as pd
 from typing import Any
 from .utillities.comparator import comparator
-from pydantic import BaseModel
 
 class DuplicateColumnAction(BaseModel):
     column: str
@@ -204,7 +243,7 @@ class CheckDuplicatesRequest(BaseModel):
     file_path: str
     key_column: str
 
-@app.post("/check-duplicates")
+@app.post("/api/check-duplicates")
 def check_duplicates(request: CheckDuplicatesRequest):
     try:
         df = extractor.excel_extractor.extract(request.file_path)
@@ -307,7 +346,7 @@ def resolve_duplicates(df: pd.DataFrame, key_column: str, actions: list[Duplicat
     
     return pd.DataFrame(result_rows)
 
-@app.post("/compare")
+@app.post("/api/compare")
 def compare_files(request: CompareRequest):
     try:
         # Wczytaj pliki
@@ -355,17 +394,34 @@ def compare_files(request: CompareRequest):
         return Response(error=error(ERROR_TYPES.COMPARE_ERROR, str(e)))
     
 
-# STATIC FILES
-## get asset by path
+# STATIC FILES - Musi być na końcu, żeby nie przesłaniało API endpoints
 if os.path.exists(DIST_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+    print(f"[INFO] Montowanie static files z {DIST_DIR}")
+    
+    # Mount assets folder
+    assets_dir = os.path.join(DIST_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        print(f"[INFO] Assets zmontowane z {assets_dir}")
 
+    # Catch-all route dla React Router (musi być ostatni!)
     @app.get("/{full_path:path}")
     async def serve_react_app(full_path: str):
+        # Nie obsługuj API routes
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            return {"error": "Not found"}, 404
+        
+        # Spróbuj znaleźć konkretny plik
         file_path = os.path.join(DIST_DIR, full_path)
         if os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
 
-        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+        # Fallback na index.html (dla React Router)
+        index_path = os.path.join(DIST_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        
+        return {"error": "Frontend not found"}, 404
 else:
-    print(f"UWAGA: Nie znaleziono folderu {DIST_DIR}. Uruchom 'npm run build' w folderze frontend.")
+    print(f"[WARNING] Nie znaleziono folderu {DIST_DIR}.")
+    print(f"[WARNING] Uruchom 'npm run build' w folderze frontend lub użyj flagi --dev")

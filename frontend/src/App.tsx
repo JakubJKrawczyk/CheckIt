@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { excelController } from "./controllers/ExcelController";
 
 interface ColumnPair {
   file1Column: string;
@@ -12,6 +13,7 @@ interface DuplicateColumnAction {
 }
 
 const styles = {
+  // ... (wszystkie style bez zmian)
   container: {
     minHeight: "100vh",
     width: "100%",
@@ -258,14 +260,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchColumns = async (path: string): Promise<string[]> => {
-    const params = new URLSearchParams({ excel_file_path: path });
-    const response = await fetch(`http://localhost:8000/extract/excel/columns?${params}`);
-    const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
-    return result.success.data;
-  };
-
   const browseFile = async (
     setPath: (path: string) => void,
     setColumns: (cols: string[]) => void,
@@ -273,19 +267,25 @@ function App() {
     setDuplicateActions: (actions: DuplicateColumnAction[]) => void,
     setHasDuplicates: (has: boolean) => void
   ) => {
-    try {
-      const response = await fetch("http://localhost:8000/browse/file");
-      const result = await response.json();
-      if (result.path) {
-        setPath(result.path);
-        setKeyColumn("");
-        setHasDuplicates(false);
-        setDuplicateActions([]);
-        const columns = await fetchColumns(result.path);
-        setColumns(columns);
+    const result = await excelController.browseFile();
+    
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    
+    if (result.path) {
+      setPath(result.path);
+      setKeyColumn("");
+      setHasDuplicates(false);
+      setDuplicateActions([]);
+      
+      const columnsResult = await excelController.fetchColumns(result.path);
+      if (columnsResult.error) {
+        setError(columnsResult.error);
+      } else {
+        setColumns(columnsResult.columns);
       }
-    } catch (err: any) {
-      setError(err.message);
     }
   };
 
@@ -296,24 +296,20 @@ function App() {
     setHasDuplicates: (has: boolean) => void,
     setDuplicateActions: (actions: DuplicateColumnAction[]) => void
   ) => {
-    try {
-      const response = await fetch("http://localhost:8000/check-duplicates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_path: path, key_column: keyColumn }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        const hasDups = result.success.data.has_duplicates;
-        setHasDuplicates(hasDups);
-        if (hasDups) {
-          setDuplicateActions(
-            columns.filter((col) => col !== keyColumn).map((col) => ({ column: col, action: "first" as const }))
-          );
-        }
-      }
-    } catch (err: any) {
-      setError(err.message);
+    const result = await excelController.checkDuplicates(path, keyColumn);
+    
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    
+    setHasDuplicates(result.hasDuplicates);
+    if (result.hasDuplicates) {
+      setDuplicateActions(
+        columns
+          .filter((col) => col !== keyColumn)
+          .map((col) => ({ column: col, action: "first" as const }))
+      );
     }
   };
 
@@ -362,12 +358,10 @@ function App() {
   };
 
   const addAllMatchingColumns = () => {
-    // Znajdź wspólne kolumny (te same nazwy)
     const commonColumns = file1Columns.filter(
       (col) => file2Columns.includes(col) && col !== file1KeyColumn && col !== file2KeyColumn
     );
 
-    // Dodaj tylko te, które jeszcze nie są zmapowane
     const existingFile1Cols = columnPairs.map((p) => p.file1Column);
     const newPairs = commonColumns
       .filter((col) => !existingFile1Cols.includes(col))
@@ -404,33 +398,24 @@ function App() {
     setDifferences([]);
     setIsEqual(null);
 
-    try {
-      const response = await fetch("http://localhost:8000/compare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file1_path: file1Path,
-          file1_key_column: file1KeyColumn,
-          file1_duplicate_actions: file1DuplicateActions,
-          file2_path: file2Path,
-          file2_key_column: file2KeyColumn,
-          file2_duplicate_actions: file2DuplicateActions,
-          column_pairs: columnPairs,
-        }),
-      });
+    const result = await excelController.compareFiles({
+      file1Path,
+      file1KeyColumn,
+      file1DuplicateActions,
+      file2Path,
+      file2KeyColumn,
+      file2DuplicateActions,
+      columnPairs,
+    });
 
-      const result = await response.json();
-      if (result.error) {
-        setError(result.error.details || result.error.message);
-      } else {
-        setDifferences(result.success.data.result);
-        setIsEqual(result.success.data.is_equal);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setDifferences(result.differences);
+      setIsEqual(result.isEqual);
     }
+
+    setLoading(false);
   };
 
   const renderDuplicateConfig = (
@@ -459,7 +444,7 @@ function App() {
                   <select
                     value={action.action}
                     onChange={(e) =>
-                      updateDuplicateAction(actions, setActions, idx, e.target.value as "first" | "last" | "min" | "max" | "sum" | "custom", action.customValue)
+                      updateDuplicateAction(actions, setActions, idx, e.target.value as any, action.customValue)
                     }
                     style={styles.selectSmall}
                   >
