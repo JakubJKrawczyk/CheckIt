@@ -115,19 +115,23 @@ async def browse_file():
         # Pobierz główne okno
         windows = await window_manager.list_windows()
         if not windows.success or not windows.success.data["windows"]:
-            return {"path": None, "error": "No window available"}
-        
+            return Response(error=TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND]).dict()
+        print(f"[DEBUG] Available windows: {windows.success.data['windows']}")
         # Pobierz pierwsze okno z listy
-        first_window_id = windows.success.data["windows"][0]["id"]
+        first_window_id = windows.success.data["windows"][0]["window_id"]
         window_obj = next((w for w in window_manager.windows if w.Id == first_window_id), None)
         
         if not window_obj:
-            return {"path": None, "error": "Window not found"}
+            return Response(error=TYPICAL_ERRORS[ERROR_TYPES.WINDOW_NOT_FOUND]).dict()
         
         # Użyj webview native dialog
         import webview
-        result = window_obj.w.create_file_dialog(
-            webview.OPEN_DIALOG,
+        dialog_open = webview.OPEN_DIALOG
+        if hasattr(webview, "FileDialog") and hasattr(webview.FileDialog, "OPEN"):
+            dialog_open = webview.FileDialog.OPEN
+
+        result = window_obj.PyWebViewWindow.create_file_dialog(
+            dialog_open,
             allow_multiple=False,
             file_types=('Excel files (*.xlsx;*.xls)', 'All files (*.*)')
         )
@@ -137,16 +141,17 @@ async def browse_file():
         if result and len(result) > 0:
             file_path = result[0]
             print(f"[DEBUG] Selected: {file_path}")
-            return {"path": file_path}
+            # Frontend obecnie odczytuje ścieżkę z `success.message`
+            return Response(success=success(file_path, data={"path": file_path})).dict()
         else:
             print("[DEBUG] No file selected")
-            return {"path": None}
+            return Response(success=success("", data={"path": None})).dict()
             
     except Exception as e:
         print(f"[ERROR] browse_file error: {e}")
         import traceback
         traceback.print_exc()
-        return {"path": None, "error": str(e)}
+        return Response(error=error(ERROR_TYPES.INTERNAL_SERVER_ERROR.value, str(e))).dict()
 
 # STORAGE ENDPOINTS
 

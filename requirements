@@ -3,3 +3,4 @@ uvicorn
 pywebview
 websockets>=10.0
 pandas
+openpyxl
