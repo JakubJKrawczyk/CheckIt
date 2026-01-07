@@ -29,10 +29,10 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",      # React dev server
-        "http://localhost:8000",      # PyWebView local
-        "http://127.0.0.1:8000",      # PyWebView local (numeric)
-        "http://127.0.0.1:5173",      # React dev (numeric)
+        "http://localhost:21371",      # React dev server
+        "http://localhost:21370",      # PyWebView local
+        "http://127.0.0.1:21370",      # PyWebView local (numeric)
+        "http://127.0.0.1:21371",      # React dev (numeric)
     ],
     allow_credentials=True,
     allow_methods=["*"],

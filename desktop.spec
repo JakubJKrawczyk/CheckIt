@@ -72,7 +72,7 @@ a = Analysis(
     ] + uvicorn_imports + openpyxl_imports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['runtime_hooks/set_checkit_env.py'],
     excludes=[],
     noarchive=False,
     optimize=0,

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { excelController } from "./controllers/ExcelController";
+import { printComparisonReport } from "./controllers/PrintController";
 
 interface ColumnPair {
   file1Column: string;
@@ -258,6 +259,14 @@ function App() {
   const [differences, setDifferences] = useState<any[]>([]);
   const [isEqual, setIsEqual] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handlePrintReport = () => {
+    printComparisonReport({
+      file1Path,
+      file2Path,
+      differences,
+    });
+  };
   const [error, setError] = useState<string | null>(null);
 
   const browseFile = async (
@@ -652,7 +661,14 @@ function App() {
 
         {isEqual === false && differences.length > 0 && (
           <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Różnice ({differences.length})</h2>
+            <div style={styles.sectionHeader}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: 0 }}>Różnice ({differences.length})</h2>
+              <div style={styles.buttonGroup}>
+                <button onClick={handlePrintReport} style={styles.buttonSecondary}>
+                  Drukuj
+                </button>
+              </div>
+            </div>
             <table style={styles.table}>
               <thead>
                 <tr>
