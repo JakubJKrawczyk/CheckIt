@@ -28,15 +28,11 @@ app = FastAPI()
 # CORS Configuration for development mode
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:21371",      # React dev server
-        "http://localhost:21370",      # PyWebView local
-        "http://127.0.0.1:21370",      # PyWebView local (numeric)
-        "http://127.0.0.1:21371",      # React dev (numeric)
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # W trybie dev pozwól na wszystko
+    allow_credentials=False,  # Musi być False gdy origins="*"
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Determine base directory
@@ -293,12 +289,16 @@ def values_equal(val1, val2, tolerance=0.01):
     except (ValueError, TypeError):
         return val1 == val2
 
+import math
+
 def format_value(val):
     """Zaokrągla floaty do 2 miejsc po przecinku"""
     if val is None:
         return None
     try:
         f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return None
         return round(f, 2)
     except (ValueError, TypeError):
         return val

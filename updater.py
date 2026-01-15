@@ -82,7 +82,8 @@ def download_remote_exe(update_url: str, timeout_s: int = 30) -> Tuple[str, str,
     Returns (download_path, filename, remote_version).
     """
     resp = requests.get(update_url, stream=True, allow_redirects=True, timeout=timeout_s)
-    resp.raise_for_status()
+    if(resp.status_code != 200):
+        print("\nRemote update serwer nie dostępny! Kontynuuje z aktualną wersją.")
 
     filename = _extract_filename_from_headers(resp)
     if not filename:
