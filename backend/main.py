@@ -380,7 +380,11 @@ def compare_files(request: CompareRequest):
             for pair in request.column_pairs:
                 val1 = df1.loc[key, pair.file1Column]
                 val2 = df2.loc[key, pair.file2Column]
-                
+
+                # Ignoruj porównanie jeśli obie wartości są None
+                if val1 is None and val2 is None:
+                    continue
+
                 # Użyj tolerancji przy porównywaniu
                 if not values_equal(val1, val2):
                     differences.append({
